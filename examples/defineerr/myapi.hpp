@@ -48,7 +48,7 @@ DEFINE_CODE_CONTEXT_ERROR(ErrLERandNum2, 1000002, LERandErrorContext,
                           context.randNum1, context.randNum2);
 
 // 另一种定义复杂 error 类型的方法，通过继承 IError 来实现完全的自定义
-// struct ErrLERandNumComplex : gerr::IError {
+// struct ErrLERandNumComplex : gerr::details::IError {
 //   ErrLERandNum(int r, int r2) : ranNum1{r1}, randNum2{r2} {}
 //   char const* Message() override { return "not greater than rand num"; }
 //   int ranNum1{};

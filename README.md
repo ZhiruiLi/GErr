@@ -127,10 +127,10 @@ gerr::Error MyFunction4(int i, int j) {
 
 ## 定义复杂的自定义错误
 
-大多数情况下，上述的四个宏都足以满足需求，如果有特殊的自定义需求（例如想给错误类型添加自己的成员函数），可以通过自定义的错误来进行实现。一个 gerr::Error 本质上是一个继承自 gerr::IError 的类型的共享指针，因此我们仅需要自定义一个继承自 gerr::IError 的类型：
+大多数情况下，上述的四个宏都足以满足需求，如果有特殊的自定义需求（例如想给错误类型添加自己的成员函数），可以通过自定义的错误来进行实现。一个 gerr::Error 本质上是一个继承自 gerr::details::IError 的类型的共享指针，因此我们仅需要自定义一个继承自 gerr::details::IError 的类型：
 
 ```c++
-struct MyComplexError : gerr::IError {
+struct MyComplexError : gerr::details::IError {
    MyComplexError(unsigned u)
      : uin{u}, message{fmt::format("fail with uin {}", uin)} {}
    MyComplexError(unsigned u, gerr::Error const &c)
