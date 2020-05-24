@@ -508,7 +508,7 @@ std::string String(std::shared_ptr<ErrType> const& err) {
     auto const hasMsg = msg != nullptr && msg[0] != '\0';
     if (c != 0 && hasMsg) {
       s += std::to_string(c);
-      s += ": ";
+      s += ":";
       s += msg;
     } else if (c == 0 && !hasMsg) {
       // 完全空的 error，这个不应该出现，这里打印一点信息提示一下
@@ -522,7 +522,7 @@ std::string String(std::shared_ptr<ErrType> const& err) {
     }
     p = p->Cause();
     if (p != nullptr) {
-      s += ": ";
+      s += ":";
     } else {
       break;
     }
