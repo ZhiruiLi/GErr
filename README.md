@@ -13,12 +13,9 @@ GErr 参考了 Go 语言中的错误信息处理方式，提供了一种简单�
 需要先安装 CMake，并支持 C++11 的编译。
 
 ```bash
-git clone http://www.github.com/zhiruili/GErr.git
-cd GErr
-mkdir build
-cd build
-cmake ..
-make
+git clone --recurse-submodules https://github.com/ZhiruiLi/GErr.git && cd GErr && \
+  mkdir build && cd build \
+  cmake .. && make
 ```
 
 上述命令可以生成 3 个二进制文件，分别对应 examples 目录下的三个简单例子，可以简单执行一下：
