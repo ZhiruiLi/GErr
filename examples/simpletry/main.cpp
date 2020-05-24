@@ -46,7 +46,7 @@ int main() {
     if (t) {
       std::cout << "No error, result = " << t.Value() << "\n";
     } else {
-      std::cout << "Error occurs: " << gerr::String(t.Error()) << "\n";
+      std::cout << "Error occurs: " << *t.Error() << "\n";
     }
   }
 }

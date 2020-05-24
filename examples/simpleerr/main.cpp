@@ -30,7 +30,7 @@ gerr::Error CheckArgumentValue(char const* arg) {
   try {
     std::stoi(arg);
   } catch (std::exception const& e) {
-    return gerr::New("conv exception: {}", arg, e.what());
+    return gerr::New("conv exception:{}", arg, e.what());
   }
   return nullptr;
 }
@@ -50,7 +50,8 @@ gerr::Error CheckArguments(int argc, char const* argv[]) {
 int main(int argc, char const* argv[]) {
   auto const err = CheckArguments(argc, argv);
   if (err != nullptr) {
-    std::cerr << "Check arguments fail! " << gerr::String(err)
+    // 直接通过 iostream 打印错误信息
+    std::cerr << "Check arguments fail! " << *err
               << "\nExample: " << argv[0] << " <number>\n";
     // 使用 Code 函数获取错误链条上的第一个错误码
     // 如果整个错误链条上都没有错误码，就会返回默认的错误码 -1

@@ -24,7 +24,9 @@
 
 #include <fmt/format.h>
 
+#include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <type_traits>
 
@@ -97,8 +99,8 @@
       return ::gerr::Make<__ErrTypE__>(__p__, __PrivateStruct__{});           \
     }                                                                         \
                                                                               \
-    char const* Message() override { return __ErrMessagE__; }                 \
-    ::gerr::Error Cause() override { return __causE__; }                      \
+    char const* Message() const override { return __ErrMessagE__; }           \
+    ::gerr::Error const& Cause() const override { return __causE__; }         \
                                                                               \
    private:                                                                   \
     ::gerr::Error __causE__{};                                                \
@@ -135,9 +137,9 @@
       return ::gerr::Make<__ErrTypE__>(__p__, __PrivateStruct__{});            \
     }                                                                          \
                                                                                \
-    int Code() override { return __ErrCodE__; }                                \
-    char const* Message() override { return __ErrMessagE__; }                  \
-    ::gerr::Error Cause() override { return __causE__; }                       \
+    int Code() const override { return __ErrCodE__; }                          \
+    char const* Message() const override { return __ErrMessagE__; }            \
+    ::gerr::Error const& Cause() const override { return __causE__; }          \
                                                                                \
    private:                                                                    \
     ::gerr::Error __causE__{};                                                 \
@@ -235,8 +237,8 @@
                                        __PrivateStruct__{});                   \
     }                                                                          \
                                                                                \
-    char const* Message() override { return __messagE__.c_str(); }             \
-    ::gerr::Error Cause() override { return __causE__; }                       \
+    char const* Message() const override { return __messagE__.c_str(); }       \
+    ::gerr::Error const& Cause() const override { return __causE__; }          \
     ContextType& Context() { return __contexT__; }                             \
                                                                                \
    private:                                                                    \
@@ -338,9 +340,9 @@
                                        __PrivateStruct__{});                  \
     }                                                                         \
                                                                               \
-    int Code() override { return __ErrCodE__; }                               \
-    char const* Message() override { return __messagE__.c_str(); }            \
-    ::gerr::Error Cause() override { return __causE__; }                      \
+    int Code() const override { return __ErrCodE__; }                         \
+    char const* Message() const override { return __messagE__.c_str(); }      \
+    ::gerr::Error const& Cause() const override { return __causE__; }         \
     ContextType& Context() { return __contexT__; }                            \
                                                                               \
    private:                                                                   \
@@ -377,6 +379,11 @@ using Error = std::shared_ptr<details::IError>;
 
 namespace details {
 
+Error const& NoError() {
+  static Error noError = nullptr;
+  return noError;
+}
+
 /**
  * 错误的基础类型，所有的错误都应该继承自这个类型。
  * 自己定义一个 gerr::Error
@@ -387,7 +394,7 @@ namespace details {
  *   // 定义一个自定义错误类型，带上出错的 UIN。
  *   struct MyErrType : ::gerr::details::IError {
  *       MyErrType(unsigned u): uin(u) {}
- *       char const *Message() override { return "my error occurs"; } \
+ *       char const *Message() const override { return "my error occurs"; }
  *       unsigned uin{};
  *   };
  *
@@ -403,13 +410,39 @@ namespace details {
 struct IError : std::enable_shared_from_this<IError> {
   virtual ~IError() = 0;
   // override 此函数来返回错误码
-  virtual int Code() { return 0; }
+  virtual int Code() const { return 0; }
   // override 此函数来返回错误信息
-  virtual char const* Message() { return nullptr; }
+  virtual char const* Message() const { return nullptr; }
   // override 此函数来返回父错误
-  virtual Error Cause() { return nullptr; }
+  virtual Error const& Cause() const { return NoError(); }
 
   Error AsError() { return shared_from_this(); }
+
+  friend std::ostream& operator<<(std::ostream& os, IError const& err) {
+    for (auto p = &err;;) {
+      auto const c = p->Code();
+      auto const msg = p->Message();
+      auto const hasMsg = msg != nullptr && msg[0] != '\0';
+      if (c != 0 && hasMsg) {
+        // 同时持有非 0 的 code 和 message，同时打印
+        os << c << ":" << msg;
+      } else if (c == 0) {
+        // 如果 code == 0，就只打印 message
+        os << msg;
+      } else {  // c != 0 && !hasMsg
+        // 如果 message 是空，就只打印 code
+        os << std::to_string(c);
+      }
+      auto const& next = p->Cause();
+      if (next != nullptr) {
+        os << ":";
+        p = next.get();
+      } else {
+        break;
+      }
+    }
+    return os;
+  }
 };
 
 inline IError::~IError() {}
@@ -491,43 +524,17 @@ bool IsCode(int code, std::shared_ptr<ErrType> const& err) {
  * 底层错误信息 如果某一层的错误中，错误码为 0，则该层的错误码不会打印
  * 如果某一层的错误中，错误信息为空字符串或者空指针，则该层的错误信息不会打印
  * 如果某一层错误码为 0
- * 错误信息为空字符串或空指针，这个属于不正常情况，会打印一个 <EMPTY> 予以提示
- * 如果传递进来的是空指针，那么会打印 <NIL> 予以提示
+ * 如果传递进来的是空指针，那么会打印 <nil> 予以提示
  */
 template <class ErrType, class = typename std::enable_if<std::is_base_of<
                              details::IError, ErrType>::value>::type>
 std::string String(std::shared_ptr<ErrType> const& err) {
   if (err == nullptr) {
-    return "<NIL>";
+    return "<nil>";
   }
-
-  std::string s{};
-  for (auto p = std::static_pointer_cast<details::IError>(err);;) {
-    auto const c = p->Code();
-    auto const msg = p->Message();
-    auto const hasMsg = msg != nullptr && msg[0] != '\0';
-    if (c != 0 && hasMsg) {
-      s += std::to_string(c);
-      s += ":";
-      s += msg;
-    } else if (c == 0 && !hasMsg) {
-      // 完全空的 error，这个不应该出现，这里打印一点信息提示一下
-      s += "<EMPTY>";
-    } else if (c == 0) {
-      // 如果 code == 0，就只打印 message
-      s += msg;
-    } else {  // c != 0 && !hasMsg
-      // 如果 message 是空，就只打印 code
-      s += std::to_string(c);
-    }
-    p = p->Cause();
-    if (p != nullptr) {
-      s += ":";
-    } else {
-      break;
-    }
-  }
-  return s;
+  std::ostringstream oss{};
+  oss << *(static_cast<details::IError const*>(err.get()));
+  return oss.str();
 }
 
 /**
@@ -561,9 +568,9 @@ namespace details {
 class RawStrMessageError : public IError {
  public:
   RawStrMessageError(char const* message) : errorMessage_{message} {}
-  int Code() override { return 0; }
-  char const* Message() override { return errorMessage_; }
-  Error Cause() override { return nullptr; }
+  int Code() const override { return 0; }
+  char const* Message() const override { return errorMessage_; }
+  Error const& Cause() const override { return NoError(); }
 
  private:
   char const* errorMessage_{};
@@ -573,9 +580,9 @@ class RawStrMessageError : public IError {
 class MessageError : public IError {
  public:
   MessageError(std::string message) : errorMessage_{std::move(message)} {}
-  int Code() override { return 0; }
-  char const* Message() override { return errorMessage_.c_str(); }
-  Error Cause() override { return nullptr; }
+  int Code() const override { return 0; }
+  char const* Message() const override { return errorMessage_.c_str(); }
+  Error const& Cause() const override { return NoError(); }
 
  private:
   std::string errorMessage_{};
@@ -586,9 +593,9 @@ class CodeRawStrMessageError : public IError {
  public:
   CodeRawStrMessageError(int code, char const* message)
       : errorCode_{code}, errorMessage_{message} {}
-  int Code() override { return errorCode_; }
-  char const* Message() override { return errorMessage_; }
-  Error Cause() override { return nullptr; }
+  int Code() const override { return errorCode_; }
+  char const* Message() const override { return errorMessage_; }
+  Error const& Cause() const override { return NoError(); }
 
  private:
   int errorCode_{};
@@ -600,9 +607,9 @@ class CodeMessageError : public IError {
  public:
   CodeMessageError(int code, std::string message)
       : errorCode_{code}, errorMessage_{std::move(message)} {}
-  int Code() override { return errorCode_; }
-  char const* Message() override { return errorMessage_.c_str(); }
-  Error Cause() override { return nullptr; }
+  int Code() const override { return errorCode_; }
+  char const* Message() const override { return errorMessage_.c_str(); }
+  Error const& Cause() const override { return NoError(); }
 
  private:
   int errorCode_{};
@@ -614,9 +621,9 @@ class CodeSubError : public IError {
  public:
   CodeSubError(int code, Error cause)
       : errorCode_{code}, causeError_{std::move(cause)} {}
-  int Code() override { return errorCode_; }
-  char const* Message() override { return nullptr; }
-  Error Cause() override { return causeError_; }
+  int Code() const override { return errorCode_; }
+  char const* Message() const override { return nullptr; }
+  Error const& Cause() const override { return causeError_; }
 
  private:
   int errorCode_{};
@@ -628,9 +635,9 @@ class RawStrMessageSubError : public IError {
  public:
   RawStrMessageSubError(char const* message, Error cause)
       : errorMessage_{message}, causeError_{std::move(cause)} {}
-  int Code() override { return 0; }
-  char const* Message() override { return errorMessage_; }
-  Error Cause() override { return causeError_; }
+  int Code() const override { return 0; }
+  char const* Message() const override { return errorMessage_; }
+  Error const& Cause() const override { return causeError_; }
 
  private:
   char const* errorMessage_{};
@@ -642,9 +649,9 @@ class MessageSubError : public IError {
  public:
   MessageSubError(std::string message, Error cause)
       : errorMessage_{std::move(message)}, causeError_{std::move(cause)} {}
-  int Code() override { return 0; }
-  char const* Message() override { return errorMessage_.c_str(); }
-  Error Cause() override { return causeError_; }
+  int Code() const override { return 0; }
+  char const* Message() const override { return errorMessage_.c_str(); }
+  Error const& Cause() const override { return causeError_; }
 
  private:
   std::string errorMessage_{};
@@ -658,9 +665,9 @@ class CodeRawStrMessageSubError : public IError {
       : errorCode_{code},
         errorMessage_{message},
         causeError_{std::move(cause)} {}
-  int Code() override { return errorCode_; }
-  char const* Message() override { return errorMessage_; }
-  Error Cause() override { return causeError_; }
+  int Code() const override { return errorCode_; }
+  char const* Message() const override { return errorMessage_; }
+  Error const& Cause() const override { return causeError_; }
 
  private:
   int errorCode_{};
@@ -675,9 +682,9 @@ class CodeMessageSubError : public IError {
       : errorCode_{code},
         errorMessage_{std::move(message)},
         causeError_{std::move(cause)} {}
-  int Code() override { return errorCode_; }
-  char const* Message() override { return errorMessage_.c_str(); }
-  Error Cause() override { return causeError_; }
+  int Code() const override { return errorCode_; }
+  char const* Message() const override { return errorMessage_.c_str(); }
+  Error const& Cause() const override { return causeError_; }
 
  private:
   int errorCode_{};
@@ -691,9 +698,11 @@ class CodeMessageSubError : public IError {
  * 构建指定类型的 error
  * Example:
  *   struct MyErrType: gerr::details::IError {
- *     MyErrorType(int r, int c, std::string m): callRet(r), apiCode(c),
- *     apiMessage(std::move(m)) {} int callRet; int apiCode{}; std::string
- *     apiMessage{};
+ *     MyErrorType(int r, int c, std::string m):
+ *       callRet(r), apiCode(c), apiMessage(std::move(m)) {}
+ *     int callRet;
+ *     int apiCode{};
+ *     std::string apiMessage{};
  *   }
  *
  *   ApiRsp rsp{};

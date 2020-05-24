@@ -165,8 +165,8 @@ gerr::Error MyFunctionX(unsigned uin, int i) {
 * `gerr::AsCode` 尝试将错误转换为带有指定错误码的错误
 * `gerr::Code` 尝试获取错误链条上的第一个错误码，如果获取不到，就返回默认的错误码
 
-对于一般情况，我们可能只是需要简单地将错误信息输出一下，我们可以使用 `gerr::String` 将整个错误链条上的所有错误信息格式化成一个字符串。
-对于想要获取错误链路`gerr::String` 将整个错误链条上的所有错误信息格式化成一个字符串。
+对于一般情况，我们可能只是需要简单地将错误信息输出一下，我们可以直接将 Error 打印到 `std::ostream` 中，
+或者使用 `gerr::String` 将整个错误链条上的所有错误信息格式化成一个字符串。
 
 ```c++
 int MyFunction5(unsigned uin, int i) {
@@ -195,7 +195,8 @@ int MyFunction5(unsigned uin, int i) {
     // 其他未知错误，直接打印一下
     if (err != nullptr) {
         // String 函数也是 nullptr 安全的，nullptr 会被格式化为 <nil>
-        std::cerr << gerr::String(err);
+        // std::cerr << gerr::String(err);
+        std::cerr << *err;
     }
     // Code 函数也是 nullptr 安全的，传入 nullptr 会返回 0
     // 对于非 nullptr 的 err 而整个错误链条上都没有非 0 错误码的场合

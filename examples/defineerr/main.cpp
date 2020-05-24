@@ -34,7 +34,7 @@ int main() {
       if (rerr != nullptr) {
         // 将通用错误转换为特定错误
         auto const &ctx = rerr->Context();
-        std::cout << "ErrLERandNum, rand val1: " << ctx.randNum1 << ";"
+        std::cout << "ErrLERandNum, rand val1:" << ctx.randNum1 << ";"
                   << ctx.randNum2 << "\n";
       } else if (gerr::Is<fake::ErrArgumentZero>(err)) {
         // 检查一个错误是否是特定的错误，by type
@@ -44,7 +44,7 @@ int main() {
         std::cout << "I don't care a dummy error";
       } else {
         // 简单格式化错误链条并打印错误
-        std::cerr << gerr::String(err) << "\n";
+        std::cerr << *err << "\n";
       }
     } else {
       std::cout << "Nothing happened\n";
