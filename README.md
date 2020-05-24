@@ -14,7 +14,7 @@ GErr 参考了 Go 语言中的错误信息处理方式，提供了一种简单�
 
 ```bash
 git clone --recurse-submodules https://github.com/ZhiruiLi/GErr.git && cd GErr && \
-  mkdir build && cd build \
+  mkdir build && cd build && \
   cmake .. && make
 ```
 
